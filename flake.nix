@@ -28,11 +28,24 @@
               ./src
               ./Cargo.toml
               ./Cargo.lock
+              ./i18n
+              ./i18n.toml
+              ./resources
+              ./pages/system/src
+              ./pages/system/Cargo.toml
+              ./pages/system/Cargo.lock
             ];
           };
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [
+            cmake
+            fontconfig
+            freetype
             systemd # For libudev
+            xorg.libX11
+            xorg.libXcursor
+            xorg.libXi
+            xorg.libXrandr
           ];
         };
 
