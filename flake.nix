@@ -39,8 +39,10 @@
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [
             cmake
+            expat
             fontconfig
             freetype
+            pkg-config
             systemd # For libudev
             xorg.libX11
             xorg.libXcursor
