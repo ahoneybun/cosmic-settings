@@ -36,12 +36,13 @@
               ./pages/system/Cargo.lock
             ];
           };
-          nativeBuildInputs = with pkgs; [ pkg-config ];
+          nativeBuildInputs = with pkgs; [ pkg-config autoPatchelfHook ];
           buildInputs = with pkgs; [
             cmake
             expat
             fontconfig
             freetype
+            glib
             pkg-config
             systemd # For libudev
             xorg.libX11
@@ -49,6 +50,7 @@
             xorg.libXi
             xorg.libXrandr
           ];
+          runtimeDependencies = with pkgs; [ libglvnd ]; # For libEGL
         };
 
         cargoArtifacts = craneLib.buildDepsOnly pkgDef;
@@ -66,8 +68,9 @@
           drv = cosmic-settings;
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell rec {
           inputsFrom = builtins.attrValues self.checks.${system};
+          LD_LIBRARY_PATH = pkgs.lib.strings.makeLibraryPath (builtins.concatMap (d: d.runtimeDependencies) inputsFrom);
         };
       });
 
