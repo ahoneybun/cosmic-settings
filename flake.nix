@@ -29,28 +29,46 @@
               ./Cargo.toml
               ./Cargo.lock
               ./i18n
-              ./i18n.toml
               ./resources
+              ./app
+              ./app/src
+              ./app/Cargo.toml
+              ./app/Cargo.lock
+              ./app/i18n.toml
+              ./page/src
+              ./page/Cargo.toml
               ./pages/system/src
               ./pages/system/Cargo.toml
               ./pages/system/Cargo.lock
+              ./pages/time/src
+              ./pages/time/Cargo.toml
+              ./pages/time/Cargo.lock
             ];
           };
-          nativeBuildInputs = with pkgs; [ pkg-config autoPatchelfHook ];
+          nativeBuildInputs = with pkgs; [ 
+            just
+            pkg-config 
+            autoPatchelfHook 
+          ];
           buildInputs = with pkgs; [
             cmake
+            desktop-file-utils
             expat
             fontconfig
             freetype
             glib
-            pkg-config
+            gtk4
+            libxkbcommon
             systemd # For libudev
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXi
-            xorg.libXrandr
+#            xorg.libX11
+#            xorg.libXcursor
+#            xorg.libXi
+#            xorg.libXrandr
           ];
-          runtimeDependencies = with pkgs; [ libglvnd ]; # For libEGL
+          runtimeDependencies = with pkgs; [ 
+            wayland
+            libglvnd # For libEGL
+          ];
         };
 
         cargoArtifacts = craneLib.buildDepsOnly pkgDef;
