@@ -76,8 +76,12 @@ pub struct Page {
     theme_builder_needs_update: bool,
     theme_builder_config: Option<Config>,
 
+    auto_switch_descs: [Cow<'static, str>; 4],
+
     tk: CosmicTk,
     tk_config: Option<Config>,
+
+    day_time: bool,
 }
 
 impl Default for Page {
@@ -192,6 +196,13 @@ impl
             theme_builder,
             tk_config,
             tk,
+            day_time: true,
+            auto_switch_descs: [
+                fl!("auto-switch", "sunrise").into(),
+                fl!("auto-switch", "sunset").into(),
+                fl!("auto-switch", "next-sunrise").into(),
+                fl!("auto-switch", "next-sunset").into(),
+            ],
         }
     }
 }
@@ -275,6 +286,7 @@ pub enum Message {
     StartImport,
     UseDefaultWindowHint(bool),
     WindowHintSize(spin_button::Message),
+    Daytime(bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -431,24 +443,14 @@ impl Page {
     pub fn update(&mut self, message: Message) -> Command<app::Message> {
         self.theme_builder_needs_update = false;
         let mut needs_sync = false;
-        let mut ret = match message {
+        let ret = match message {
             Message::DarkMode(enabled) => {
-                self.theme_mode.is_dark = enabled;
                 if let Some(config) = self.theme_mode_config.as_ref() {
-                    // only update dark mode if autoswitch is disabled
-                    if !self.theme_mode.auto_switch {
-                        _ = config.set::<bool>("is_dark", enabled);
+                    if let Err(err) = self.theme_mode.set_is_dark(config, enabled) {
+                        tracing::error!(?err, "Error setting dark mode");
                     }
                 }
-                self.reload_theme_mode();
-
-                let theme_builder = self.theme_builder.clone();
-                Command::perform(async {}, |()| {
-                    crate::Message::SetTheme(cosmic::theme::Theme::custom(Arc::new(
-                        // TODO set the values of the theme builder
-                        theme_builder.build(),
-                    )))
-                })
+                Command::none()
             }
             Message::Autoswitch(enabled) => {
                 self.theme_mode.auto_switch = enabled;
@@ -576,18 +578,7 @@ impl Page {
                     .icon_themes
                     .iter()
                     .position(|theme| theme == &self.tk.icon_theme);
-
-                let theme_builder = self.theme_builder.clone();
-
-                cosmic::command::future(async {
-                    crate::Message::SetTheme(cosmic::theme::Theme::custom(Arc::new(
-                        // TODO set the values of the theme builder
-                        theme_builder.build(),
-                    )))
-                })
-
-                // Load the current theme builders and mode
-                // Set the theme for the application to match the current mode instead of the system theme?
+                Command::none()
             }
             Message::Left => Command::perform(async {}, |()| {
                 app::Message::SetTheme(cosmic::theme::system_preference())
@@ -650,10 +641,7 @@ impl Page {
                 }
 
                 self.reload_theme_mode();
-
-                Command::perform(async {}, |()| {
-                    crate::Message::SetTheme(cosmic::theme::Theme::custom(Arc::new(new_theme)))
-                })
+                Command::none()
             }
             Message::StartImport => Command::perform(
                 async {
@@ -795,9 +783,7 @@ impl Page {
                 }
 
                 self.reload_theme_mode();
-                Command::perform(async {}, |()| {
-                    crate::Message::SetTheme(cosmic::theme::Theme::custom(Arc::new(new_theme)))
-                })
+                Command::none()
             }
             Message::UseDefaultWindowHint(v) => {
                 self.no_custom_window_hint = v;
@@ -843,6 +829,10 @@ impl Page {
                 }
                 Command::none()
             }
+            Message::Daytime(day_time) => {
+                self.day_time = day_time;
+                Command::none()
+            }
         };
 
         if self.theme_builder_needs_update {
@@ -881,15 +871,6 @@ impl Page {
             } else {
                 tracing::error!("Failed to get the theme config.");
             }
-            let theme_builder = self.theme_builder.clone();
-            ret = Command::batch(vec![
-                ret,
-                Command::perform(async {}, |()| {
-                    crate::Message::SetTheme(cosmic::theme::Theme::custom(Arc::new(
-                        theme_builder.build(),
-                    )))
-                }),
-            ]);
         }
 
         self.can_reset = if self.theme_mode.is_dark {
@@ -910,9 +891,9 @@ impl Page {
     fn reload_theme_mode(&mut self) {
         let icon_themes = std::mem::take(&mut self.icon_themes);
         let icon_theme_active = self.icon_theme_active.take();
-
+        let day_time = self.day_time;
         *self = Self::from((self.theme_mode_config.clone(), self.theme_mode));
-
+        self.day_time = day_time;
         self.icon_themes = icon_themes;
         self.icon_theme_active = icon_theme_active;
     }
@@ -1054,26 +1035,25 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
         .descriptions(vec![
             // 0
             fl!("auto-switch").into(),
-            fl!("auto-switch", "desc").into(),
-            //2
+            //1
             fl!("accent-color").into(),
-            //3
+            //2
             fl!("app-background").into(),
-            //4
+            //3
             fl!("container-background").into(),
             fl!("container-background", "desc").into(),
             fl!("container-background", "desc-detail").into(),
             fl!("container-background", "reset").into(),
-            // 8
+            // 7
             fl!("text-tint").into(),
             fl!("text-tint", "desc").into(),
-            // 10
+            // 9
             fl!("control-tint").into(),
             fl!("control-tint", "desc").into(),
-            // 12
+            // 11
             fl!("window-hint-accent-toggle").into(),
             fl!("window-hint-accent").into(),
-            // 14
+            // 13
             fl!("dark").into(),
             fl!("light").into(),
         ])
@@ -1098,7 +1078,7 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                                 .padding([8, 0])
                                 .selected(page.theme_mode.is_dark)
                                 .on_press(Message::DarkMode(true)),
-                                text(&*descriptions[14])
+                                text(&*descriptions[13])
                             ]
                             .spacing(8)
                             .width(Length::FillPortion(1))
@@ -1113,7 +1093,7 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                                 .selected(!page.theme_mode.is_dark)
                                 .padding([8, 0])
                                 .on_press(Message::DarkMode(false)),
-                                text(&*descriptions[15])
+                                text(&*descriptions[14])
                             ]
                             .spacing(8)
                             .width(Length::FillPortion(1))
@@ -1128,12 +1108,23 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                 )
                 .add(
                     settings::item::builder(&*descriptions[0])
-                        .description(&*descriptions[1])
+                        .description(
+                            if page.day_time && !page.theme_mode.is_dark {
+                                &page.auto_switch_descs[0]
+                            } else if !page.day_time && page.theme_mode.is_dark {
+                                &page.auto_switch_descs[1]
+                            } else if page.day_time && page.theme_mode.is_dark {
+                                &page.auto_switch_descs[2]
+                            } else {
+                                &page.auto_switch_descs[3]
+                            }
+                            .clone(),
+                        )
                         .toggler(page.theme_mode.auto_switch, Message::Autoswitch),
                 )
                 .add(
                     cosmic::iced::widget::column![
-                        text(&*descriptions[2]),
+                        text(&*descriptions[1]),
                         scrollable(
                             cosmic::iced::widget::row![
                                 color_button(
@@ -1229,7 +1220,7 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                     .spacing(8),
                 )
                 .add(
-                    settings::item::builder(&*descriptions[3]).control(
+                    settings::item::builder(&*descriptions[2]).control(
                         page.application_background
                             .picker_button(Message::ApplicationBackground, Some(24))
                             .width(Length::Fixed(48.0))
@@ -1237,8 +1228,8 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                     ),
                 )
                 .add(
-                    settings::item::builder(&*descriptions[4])
-                        .description(&*descriptions[5])
+                    settings::item::builder(&*descriptions[3])
+                        .description(&*descriptions[4])
                         .control(if page.container_background.get_applied_color().is_some() {
                             Element::from(
                                 page.container_background
@@ -1258,8 +1249,8 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                         }),
                 )
                 .add(
-                    settings::item::builder(&*descriptions[8])
-                        .description(&*descriptions[9])
+                    settings::item::builder(&*descriptions[7])
+                        .description(&*descriptions[8])
                         .control(
                             page.interface_text
                                 .picker_button(Message::InterfaceText, Some(24))
@@ -1268,8 +1259,8 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                         ),
                 )
                 .add(
-                    settings::item::builder(&*descriptions[10])
-                        .description(&*descriptions[11])
+                    settings::item::builder(&*descriptions[9])
+                        .description(&*descriptions[10])
                         .control(
                             page.control_component
                                 .picker_button(Message::ControlComponent, Some(24))
@@ -1278,12 +1269,12 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                         ),
                 )
                 .add(
-                    settings::item::builder(&*descriptions[12])
+                    settings::item::builder(&*descriptions[11])
                         .toggler(page.no_custom_window_hint, Message::UseDefaultWindowHint),
                 );
             if !page.no_custom_window_hint {
                 section = section.add(
-                    settings::item::builder(&*descriptions[13]).control(
+                    settings::item::builder(&*descriptions[12]).control(
                         page.accent_window_hint
                             .picker_button(Message::AccentWindowHint, Some(24))
                             .width(Length::Fixed(48.0))
@@ -1571,7 +1562,7 @@ async fn fetch_icon_themes() -> Message {
 /// Set the preferred icon theme for GNOME/GTK applications.
 async fn set_gnome_icon_theme(theme: String) {
     let _res = tokio::process::Command::new("gsettings")
-        .args(&[
+        .args([
             "set",
             "org.gnome.desktop.interface",
             "icon-theme",

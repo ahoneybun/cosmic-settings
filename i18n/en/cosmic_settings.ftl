@@ -33,7 +33,10 @@ window-hint-accent = Active window hint color
 window-hint-accent-toggle = Use theme accent color as active window hint
 
 auto-switch = Automatically switch from Light to Dark mode
-    .desc = Switches to Light mode at sunrise
+    .sunrise = Switches to Light mode at sunrise
+    .sunset = Switches to Light mode at sunset
+    .next-sunrise = Switches to Light mode at next sunrise
+    .next-sunset = Switches to Light mode at next sunset
 
 container-background = Container background
     .desc-detail = Container background color is used for navigation sidebar, side drawer, dialogs and similar widgets. By default, it is automatically derived from the Application or window background.
@@ -293,6 +296,11 @@ time-zone = Time Zone
 time-format = Date & Time Format
     .twenty-four = 24-hour time
     .first = First day of week
+    .show-date = Show Date on Top Panel
+    .friday = Friday
+    .saturday = Saturday
+    .sunday = Sunday
+    .monday = Monday
 
 time-region = Region & Language
     .desc = Format dates, times, and numbers based on your region

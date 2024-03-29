@@ -3,13 +3,16 @@ members = ["cosmic-settings", "page", "pages/*"]
 default-members = ["cosmic-settings"]
 resolver = "2"
 rust-version = "1.71.0"
+sunrise_sunset = "1.0.1"
+
 
 [workspace.dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic"
-features = ["single-instance", "tokio", "wayland", "xdg-portal"]
+features = ["dbus-config", "single-instance", "tokio", "wayland", "xdg-portal"]
 
 [workspace.dependencies.cosmic-config]
 git = "https://github.com/pop-os/libcosmic"
+features = ["dbus"]
 
 [workspace.dependencies.cosmic-bg-config]
 git = "https://github.com/pop-os/cosmic-bg"
