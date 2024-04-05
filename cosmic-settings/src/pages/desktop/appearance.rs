@@ -1109,9 +1109,9 @@ pub fn mode_and_colors() -> Section<crate::pages::Message> {
                 .add(
                     settings::item::builder(&*descriptions[0])
                         .description(
-                            if page.day_time && !page.theme_mode.is_dark {
+                            if !page.day_time && page.theme_mode.is_dark {
                                 &page.auto_switch_descs[0]
-                            } else if !page.day_time && page.theme_mode.is_dark {
+                            } else if page.day_time && !page.theme_mode.is_dark {
                                 &page.auto_switch_descs[1]
                             } else if page.day_time && page.theme_mode.is_dark {
                                 &page.auto_switch_descs[2]
@@ -1499,14 +1499,14 @@ async fn fetch_icon_themes() -> Message {
         .or_else(dirs::home_dir)
         .map(|dir| dir.join(".local/share/icons"));
 
-    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS");
+    let xdg_data_dirs = std::env::var("XDG_DATA_DIRS").ok();
 
     let xdg_data_dirs = xdg_data_dirs
-        .as_ref()
-        .ok()
+        .as_deref()
+        // Default from the XDG Base Directory Specification
+        .or(Some("/usr/local/share/:/usr/share/"))
         .into_iter()
-        .flat_map(|data_dirs| data_dirs.split_terminator(':'))
-        .map(|dir| Path::new(dir).join("icons"));
+        .flat_map(|arg| std::env::split_paths(arg).map(|dir| dir.join("icons")));
 
     for icon_dir in xdg_data_dirs.chain(xdg_data_home) {
         let Ok(read_dir) = std::fs::read_dir(&icon_dir) else {
